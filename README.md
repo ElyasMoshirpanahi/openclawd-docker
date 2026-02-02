@@ -1,6 +1,14 @@
 # OpenClaw (Clawbot) Docker Image
 
-Pre-built Docker image for [OpenClaw](https://github.com/openclaw/openclaw) — run your AI assistant in seconds without building from source.
+Pre-built Docker image for [OpenClaw](https://github.com/openclaw/openclaw) — run your AI assistant in minutes without building from source.
+
+This repository provides:
+
+* A **one-command installer** (recommended)
+* A **Docker Compose setup** for manual control
+* A **pre-built image** hosted on GHCR
+
+---
 
 ## One-Line Install (Recommended)
 
@@ -16,134 +24,177 @@ bash <(curl -fsSL https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-d
 irm https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.ps1 | iex
 ```
 
-> **Note for Windows users:** Make sure Docker Desktop is installed and running. You can also use WSL2 with the Linux installation command.
+> **Windows note:** Docker Desktop must be installed and running.
+> WSL2 users can use the Linux command inside WSL.
 
-This will:
-- ✅ Check prerequisites (Docker, Docker Compose)
-- ✅ Download necessary files
-- ✅ Pull the pre-built image
-- ✅ Run the onboarding wizard
-- ✅ Start the gateway
+### What the installer does
 
-### Install Options
+* ✅ Checks Docker & Docker Compose
+* ✅ Creates a user-scoped install directory
+* ✅ Pulls the OpenClaw Docker image
+* ✅ Runs the onboarding wizard
+* ✅ Starts the OpenClaw gateway via Docker Compose
 
-**Linux / macOS:**
+---
 
-### Install Options
+## Installer Options
 
-**Linux / macOS:**
+### Linux / macOS
 
 ```bash
-# Just pull the image (no setup)
+# Pull image only
 bash <(curl -fsSL https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.sh) --pull-only
 
-# Skip onboarding (if already configured)
+# Skip onboarding (already configured)
 bash <(curl -fsSL https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.sh) --skip-onboard
 
-# Don't start gateway after setup
+# Do not start gateway automatically
 bash <(curl -fsSL https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.sh) --no-start
 
 # Custom install directory
 bash <(curl -fsSL https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.sh) --install-dir /opt/openclaw
 ```
 
-**Windows (PowerShell):**
+### Windows (PowerShell)
 
 ```powershell
-# Just pull the image (no setup)
+# Pull image only
 irm https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.ps1 | iex -PullOnly
 
-# Skip onboarding (if already configured)
+# Skip onboarding
 irm https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.ps1 | iex -SkipOnboard
 
-# Don't start gateway after setup
+# Do not start gateway
 irm https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.ps1 | iex -NoStart
-
-# Custom install directory
-$env:TEMP_INSTALL_SCRIPT = irm https://raw.githubusercontent.com/elyasmoshirpanahi/openclaw-docker/main/install.ps1; Invoke-Expression $env:TEMP_INSTALL_SCRIPT -InstallDir "C:\openclaw"
 ```
 
-## Manual Install
+---
 
-### Quick Start
+## Manual Install (Advanced)
+
+### Requirements
+
+* Docker
+* Docker Compose
+* Run as a **normal user** (not root)
+* User must be in the `docker` group on Linux
 
 ```bash
-# Pull the image
-docker pull ghcr.io/elyasmoshirpanahi/openclaw-docker:latest
-
-# Run onboarding (first time setup)
-docker run -it --rm \
-  -v ~/.openclaw:/home/node/.openclaw \
-  -v ~/.openclaw/workspace:/home/node/.openclaw/workspace \
-  ghcr.io/elyasmoshirpanahi/openclaw-docker:latest onboard
-
-# Start the gateway
-docker run -d \
-  --name openclaw \
-  --restart unless-stopped \
-  -v ~/.openclaw:/home/node/.openclaw \
-  -v ~/.openclaw/workspace:/home/node/.openclaw/workspace \
-  -p 18789:18789 \
-  ghcr.io/elyasmoshirpanahi/openclaw-docker:latest gateway start --foreground
+sudo usermod -aG docker $USER
+# log out and back in
 ```
 
-### Using Docker Compose
+---
+
+## Using Docker Compose (Recommended for Manual Setup)
 
 ```bash
-# Clone this repo
 git clone https://github.com/elyasmoshirpanahi/openclaw-docker.git
 cd openclaw-docker
-
-# Run onboarding
-docker compose run --rm openclaw-cli onboard
-
-# Start the gateway
-docker compose up -d openclaw-gateway
 ```
+
+### First-time onboarding
+
+```bash
+docker-compose run --rm openclaw-cli onboard
+```
+
+### Start the gateway (important)
+
+```bash
+docker-compose up -d openclaw-gateway
+```
+
+Verify:
+
+```bash
+docker-compose ps
+docker logs -f openclaw-gateway
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:18789/health
+```
+
+### Run the TUI
+
+```bash
+docker-compose run --rm openclaw-cli tui
+```
+
+> ⚠️ **Important**
+>
+> * Do **not** use `openclaw-cli gateway start` in Docker environments
+> * That command relies on `systemctl --user` and is **not supported in containers**
+> * Always manage the gateway with **Docker Compose**
+
+---
 
 ## Configuration
 
-During onboarding, you'll configure:
-- **AI Provider** (Anthropic Claude, OpenAI, etc.)
-- **Channels** (Telegram, WhatsApp, Discord, etc.)
-- **Gateway settings**
+Configuration is stored on the host and persists across restarts:
 
-Config is stored in `~/.openclaw/` and persists across container restarts.
+```text
+~/.openclaw/
+├── openclaw.json
+├── identity/
+└── workspace/
+```
 
-## Available Tags
+Configured during onboarding:
 
-| Tag | Description |
-|-----|-------------|
-| `latest` | Latest stable release |
-| `vX.Y.Z` | Specific version |
-| `main` | Latest from main branch (may be unstable) |
+* AI provider (OpenAI, Anthropic, etc.)
+* Agents and channels
+* Gateway settings
+
+---
 
 ## Volumes
 
-| Path | Purpose |
-|------|---------|
-| `/home/node/.openclaw` | Config and session data |
-| `/home/node/.openclaw/workspace` | Agent workspace |
+| Container Path                   | Purpose           |
+| -------------------------------- | ----------------- |
+| `/home/node/.openclaw`           | Config + identity |
+| `/home/node/.openclaw/workspace` | Agent workspace   |
+
+---
 
 ## Ports
 
-| Port | Purpose |
-|------|---------|
-| `18789` | Gateway API + Dashboard |
+| Port    | Purpose                 |
+| ------- | ----------------------- |
+| `18789` | Gateway API + WebSocket |
+| `18790` | Dashboard               |
+
+---
+
+## Docker Image Tags
+
+| Tag      | Description                   |
+| -------- | ----------------------------- |
+| `latest` | Latest stable                 |
+| `vX.Y.Z` | Specific release              |
+| `main`   | Latest main branch (unstable) |
+
+---
 
 ## Links
 
-- [OpenClaw Website](https://openclaw.ai/)
-- [OpenClaw Docs](https://docs.openclaw.ai)
-- [OpenClaw GitHub](https://github.com/openclaw/openclaw)
-- [Discord Community](https://discord.gg/clawd)
+* 🌐 Website: [https://openclaw.ai](https://openclaw.ai)
+* 📘 Docs: [https://docs.openclaw.ai](https://docs.openclaw.ai)
+* 💻 Core Repo: [https://github.com/openclaw/openclaw](https://github.com/openclaw/openclaw)
+* 💬 Discord: [https://discord.gg/clawd](https://discord.gg/clawd)
 
-## YouTube Tutorial
-
-📺 Watch the installation tutorial: [Coming Soon]
+---
 
 ## License
 
-This Docker packaging is provided by [elyasmoshirpanahi](https://elyasmoshirpanahi.com).
-OpenClaw itself is licensed under MIT — see the [original repo](https://github.com/openclaw/openclaw).
-# openclawd-docker
+This Docker packaging is maintained by
+**Elyas Moshirpanahi** — [https://elyasmoshirpanahi.com](https://elyasmoshirpanahi.com)
+
+OpenClaw is MIT licensed.
+See the [original OpenClaw repository](https://github.com/openclaw/openclaw).
+
+---
+
